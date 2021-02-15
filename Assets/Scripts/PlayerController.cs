@@ -16,6 +16,8 @@ public class PlayerController : MonoBehaviour
     // public AudioSource hurtAudio;
     // public AudioSource cherryAudio;
 
+    [Header("CD的UI组件")] public Image cdImage;
+    
     public Transform cellingCheck;
     public Transform groundCheck;
 
@@ -30,31 +32,53 @@ public class PlayerController : MonoBehaviour
     private bool isHurt;
     private bool isGround, isJump;
     private bool jumpPressed;
+    private bool _isDashing;
+    private float horizontalMove;
 
 
     private int jumpCount;
 
+    [Header("Dash参数")] public float dashTime; // dash时长
+    private float _dashTimeLeft; // 冲锋剩余时间
+    public float dashSpeed;
+    private float _lastDash = -10f; // 上一次dash时间点点
+    public float dashCoolDown;
+
     // Start is called before the first frame update
-    void Start()
+    private void Start()
     {
         rb = GetComponent<Rigidbody2D>();
         animator = GetComponent<Animator>();
     }
 
     // Update is called once per frame
-    void Update()
+    private void Update()
     {
         if (Input.GetButtonDown("Jump") && jumpCount > 0)
         {
             jumpPressed = true;
         }
 
+        if (Input.GetKeyDown(KeyCode.J))
+        {
+            if (Time.time >= _lastDash + dashCoolDown)
+            {
+                // 可以执行dash
+                ReadyToDash();
+            }
+        }
+
         cherryNum.text = cherry.ToString();
+
+        cdImage.fillAmount -= 1.0f / dashCoolDown * Time.deltaTime;
     }
 
     private void FixedUpdate()
     {
         isGround = Physics2D.OverlapCircle(groundCheck.position, 0.1f, ground);
+        Dash();
+        if (_isDashing)
+            return;
         if (!isHurt)
         {
             GroundMovement();
@@ -65,9 +89,9 @@ public class PlayerController : MonoBehaviour
     }
 
 
-    void GroundMovement()
+    private void GroundMovement()
     {
-        float horizontalMove = Input.GetAxisRaw("Horizontal");
+        horizontalMove = Input.GetAxisRaw("Horizontal");
         rb.velocity = new Vector2(horizontalMove * speed, rb.velocity.y);
         if (horizontalMove != 0) // 更改左右移动时角色朝向
         {
@@ -78,7 +102,7 @@ public class PlayerController : MonoBehaviour
     }
 
     // 更改动画
-    void SwitchAnimatior()
+    private void SwitchAnimatior()
     {
         if (!Physics2D.OverlapCircle(cellingCheck.position, 0.2f, ground))
         {
@@ -157,7 +181,7 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    void Crouch() // 下蹲动画
+    private void Crouch() // 下蹲动画
     {
         // 无障碍物的时候可以执行
         if (!Physics2D.OverlapCircle(cellingCheck.position, 0.2f, ground))
@@ -175,7 +199,7 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    void Jump()
+    private void Jump()
     {
         if (isGround)
         {
@@ -185,6 +209,7 @@ public class PlayerController : MonoBehaviour
 
         if (jumpPressed && isGround)
         {
+            SoundManager.instance.JumpAudio();
             isJump = true;
             rb.velocity = new Vector2(rb.velocity.x, jumpForce);
             --jumpCount;
@@ -192,6 +217,7 @@ public class PlayerController : MonoBehaviour
         }
         else if (jumpPressed && jumpCount > 0 && isJump)
         {
+            SoundManager.instance.JumpAudio();
             rb.velocity = new Vector2(rb.velocity.x, jumpForce);
             --jumpCount;
             jumpPressed = false;
@@ -199,7 +225,7 @@ public class PlayerController : MonoBehaviour
     }
 
 
-    void Restart() // 游戏重开
+    private void Restart() // 游戏重开
     {
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
@@ -207,5 +233,41 @@ public class PlayerController : MonoBehaviour
     public void CherryCount()
     {
         cherry++;
+    }
+
+    private void ReadyToDash()
+    {
+        _isDashing = true;
+        _dashTimeLeft = dashTime;
+
+        _lastDash = Time.time;
+        cdImage.fillAmount = 1;
+    }
+
+    private void Dash()
+    {
+        if (_isDashing)
+        {
+            if (_dashTimeLeft > 0)
+            {
+                if (rb.velocity.y > 0 && !isGround)
+                {
+                    rb.velocity = new Vector2(dashSpeed * horizontalMove, jumpForce);
+                }
+
+                rb.velocity = new Vector2(dashSpeed * horizontalMove, rb.velocity.y);
+                _dashTimeLeft -= Time.deltaTime;
+                ShadowPool.Instance.GetFromPool();
+            }
+
+            if (_dashTimeLeft <= 0)
+            {
+                _isDashing = false;
+                if (!isGround)
+                {
+                    rb.velocity = new Vector2(dashSpeed * horizontalMove, jumpForce);
+                }
+            }
+        }
     }
 }

@@ -193,6 +193,9 @@ MonoBehaviour:
     m_Bits: 256
   cherry: 0
   cherryNum: {fileID: 0}
+  dashTime: 0.3
+  dashSpeed: 20
+  dashCoolDown: 2
 --- !u!1 &6518206866682517352
 GameObject:
   m_ObjectHideFlags: 0
